@@ -20,20 +20,20 @@ sp_residuals = AutoReg(weekly_returns['S&P'], lags=1).fit().resid
 
 # Univariate GARCH model
 print("Univariate GARCH Model:")
-dax_garch = CVM('garch', 'studentt')
-dax_results = dax_garch.fit(dax_residuals)
-print(dax_results)
+sp_garch = CVM('gjr', 'normal')
+sp_results = sp_garch.fit(sp_residuals)
+print(sp_results)
 
 # Calculate Value-at-Risk (VaR)
-dax_var = dax_garch.calc_var(dax_results)
-print(f"DAX Value-at-Risk: {dax_var}")
+sp_var = sp_garch.calc_var(sp_results)
+print(f"S&P500 Value-at-Risk: {sp_var}")
 
 # Multivariate DCC-GARCH model
 print("\nMultivariate DCC-GARCH Model:")
 combined_residuals = pd.concat([dax_residuals, sp_residuals], axis=1)
 combined_residuals.columns = ['DAX', 'S&P']
-dcc_model = CVM('garch', 'studentt')
-dcc_results = dcc_model.fit(combined_residuals, multivar='dcc')
+dcc_model = CVM('gjr', 'studentt')
+dcc_results = dcc_model.fit(combined_residuals, multivar='dcc', framework='MLE')
 print(dcc_results)
 
 # Extract correlation structure

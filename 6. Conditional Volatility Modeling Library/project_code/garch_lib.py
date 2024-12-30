@@ -467,8 +467,11 @@ class ModelParameters(ABC):
 
 @dataclass
 class GARCHParameters(ModelParameters):
-    def stationarity_condition(self):
-        return self.alpha + self.beta
+    def stationarity_condition(self, internal=False):
+        if internal:
+            return [0, 1, 1]
+        else:
+            return self.alpha + self.beta
     
     def to_list(self):
         return [self.omega, self.alpha, self.beta]
@@ -477,8 +480,11 @@ class GARCHParameters(ModelParameters):
 class GJRParameters(ModelParameters):
     gamma: float = 0.05
     
-    def stationarity_condition(self):
-        return self.alpha + self.beta + 0.5 * self.gamma
+    def stationarity_condition(self, internal=False):
+        if internal:
+            return [0, 1, 1, 0.5]
+        else:
+            return self.alpha + self.beta + 0.5 * self.gamma
     
     def to_list(self):
         return [self.omega, self.alpha, self.beta, self.gamma]
@@ -916,11 +922,14 @@ class FitActions:
         """Fits core parameters under the assumption of normal density, returns the parameters only."""
         volatility_model = self.model_type
         initial_parameters = volatility_model.initial_params().to_list()
+        stationarity_vector = volatility_model.initial_params().stationarity_condition(internal=True)
         optimization_bounds = volatility_model.optimization_bounds()
         likelihood_function = likelihood_class.log_likelihood
         compute_variance = volatility_model.compute_variance
 
         def log_likelihood(parameters):
+            if parameters @ stationarity_vector >= 1:
+                return 1e4
             sigma2 = compute_variance(parameters, data)
             return likelihood_function(data, sigma2)
         
@@ -930,6 +939,7 @@ class FitActions:
         """Fits core parameters under the assumption of non-symmetric density."""
         volatility_model = self.model_type
         initial_parameters = volatility_model.initial_params().to_list()
+        stationarity_vector = volatility_model.initial_params().stationarity_condition(internal=True)
         optimization_bounds = volatility_model.optimization_bounds()
         likelihood_function = likelihood_class.log_likelihood
         compute_variance = volatility_model.compute_variance
@@ -941,6 +951,9 @@ class FitActions:
 
         def log_likelihood(volatility_parameters):
             core_parameters = volatility_parameters[:-number_of_shape_parameters]
+            if core_parameters @ stationarity_vector >= 1:
+                return 1e4
+            
             shape_parameters =  volatility_parameters[-number_of_shape_parameters:]
             sigma2 = compute_variance(core_parameters, data)
             return likelihood_function(data, sigma2, *shape_parameters)
